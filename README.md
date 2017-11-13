@@ -1,5 +1,5 @@
 # Adjustable Vitals Monitor - Project AVM
-This project was created during HealthHacks 2017, a 24 hour hackathon, as a solution to a challenge presented by OpenEMR: creating a device that measured vitals and 
+This project was created during HealthHacks 2017, a 24 hour hackathon, as a solution to a challenge presented by OpenEMR.
 
 Please check out the full write up here: https://devpost.com/software/project-avm-adjustable-vitals-monitor
 
