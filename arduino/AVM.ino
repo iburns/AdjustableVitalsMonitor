@@ -1,48 +1,43 @@
-/*
+/**
+*
+*  Adjustable Vitals Monitor System Code
+*  Team: Panth, Brennan, Omar, and Ian
+*   
+*  November 4-5, 2017
+*
+*  All Rights Reserved.
+*
+**/
 
-   OpenEMR - Vital Signs
-   Panth, Brennan, Omar, and Ian
-
-*/
-
-// include the library code:
+/** Include library code **/
 #define USE_ARDUINO_INTERRUPTS false
 #include <LiquidCrystal.h>
 #include <PulseSensorPlayground.h>
 #include <DHT11.h>
 
+/** DHT Temperature Sensor Info **/
 #define DHT_PIN 6
-
 dht11 DHT11;
-/** PIN IDs **/
+double alpha = 0.75;
+unsigned long lasttime = 0;
 
-// initialize the library by associating any needed LCD interface pin
-// with the arduino pin number it is connected to
-/* Pins being used
-    0, 1, 2, 3, 4, 5, _, 7, 8, _, 10, 11, 12, 13
-*/
-const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
-int ledPinID = 13;
-int buttonID = 10;
-int sensorPinID = 1;
-int lightSensorID = 8;
-int redLightID = 7;
-int PulseSensorPurplePin = 0;        // Pulse Sensor PURPLE WIRE connected to ANALOG PIN 0
+/** PIN IDs **/
+/**   Pins being used: 0, 1, 2, 3, 4, 5, _, 7, 8, _, 10, 11, 12, 13 **/
+const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2; // LCD
+const int ledPinID = 13;   // Internal LED
+const int buttonID = 10; 
+const int sensorPinID = 1;
+const int lightSensorID = 8;
+const int redLightID = 7;
+const int PulseSensorPurplePin = 0;        // Pulse Sensor PURPLE WIRE connected to ANALOG PIN 0
 const int PIN_INPUT = A0;
 const int PIN_BLINK = 13;    // Pin 13 is the on-board LED
 const int THRESHOLD = 550;   // Adjust this number to avoid noise when idle
 
-int Signal;                // holds the incoming raw data. Signal value can range from 0-1024
-int Threshold = 550;            // Determine which Signal to "count as a beat", and which to ingore.
-
-
-//alpha is used in the original proposed code by the company (see below).
-double alpha = 0.75;
-//lasttime is used to have a very precise measurement of the time so the calculated pulse is correct.
-unsigned long lasttime = 0;
+int Signal;                // Holds the incoming raw data from heartbeat sensor. Can range from 0-1024
+int Threshold = 550;       // Determine what to "count as a beat", and what to ingore.
 
 /** Primary  Variables **/
-
 double _BPM;
 double _RedLight;
 double _IRLight;
@@ -51,14 +46,14 @@ double _SPO2;
 double _BP;
 double _severity;
 
-
-
 /** State Controller **/
-/*  0 = BPM
- *  1 = IR
- *  2 = Red
- *  3 = Temp
- */
+/** 
+ *    0 = Severity
+ *    1 = BPM
+ *    2 = SpO2
+ *    3 = Temp
+ *    4 = BP
+ **/
 int _state = 0;
 
 /** Smoothing Variables **/
@@ -76,7 +71,10 @@ double _re_average = 0;                // the average
 
 unsigned long _lastTempTime = 0;
 
+/** For button toggling **/
 bool buttonUsed = false;
+
+/** More setup **/
 
 PulseSensorPlayground pulseSensor;
 
@@ -88,12 +86,7 @@ void setup() {
   // Button
   pinMode(buttonID, INPUT);
 
-  //pulseSensor.analogInput(PIN_INPUT);
-  //pulseSensor.blinkOnPulse(PIN_BLINK);
-  //pulseSensor.fadeOnPulse(PIN_FADE);
-
   pulseSensor.setSerial(Serial);
-  //pulseSensor.setOutputType(OUTPUT_TYPE);
   pulseSensor.setThreshold(THRESHOLD);
 
   // Now that everything is ready, start reading the PulseSensor signal.
@@ -135,46 +128,35 @@ void loop() {
 
     _BPM = 0;
 
-  //lcd.print(digitalRead(buttonID));
-
+   /** Button code **/
   if (digitalRead(buttonID) == HIGH && buttonUsed == false) {
     buttonUsed = true;
-    //_state = (_state + 1) % 4;
+    _state = (_state + 1) % 4;
     Serial.print(_state);
-    //lcd.print(1);
   } else if (digitalRead(buttonID) == HIGH && buttonUsed == true) {
     Serial.print(_state);
   } else {
     buttonUsed = false;
-    //lcd.print(0);
     Serial.print(_state);
   }
   
   delay(20);
 
-  /** BPM BPM BPM **/
+  /** BPM **/
   pulseSensor.sawNewSample();
 
-  //  Signal = analogRead(PulseSensorPurplePin);  // Read the PulseSensor's value.
-  //  Assign this value to the "Signal" variable.
-
-  ////Serial.println(Signal);                    // Send the Signal value to Serial Plotter.
-
+  /** Reset LCD **/
   lcd.clear();
-  // BPM - Sample
-  //lcd.print(pulseSensor.getLatestSample(0));
-  //lcd.print(" B:");
-  // BPM - Beats Per Minute
-  //lcd.print(pulseSensor.getBeatsPerMinute(0));
   
+  /** Set BPM variable **/
   _BPM = pulseSensor.getBeatsPerMinute(0) / 2;
 
-  // write the latest sample to Serial.
+  // write the latest sample.
   pulseSensor.outputSample();
 
   /*
      If a beat has happened since we last checked,
-     write the per-beat information to Serial.
+     write the per-beat information.
   */
   if (pulseSensor.sawStartOfBeat()) {
     pulseSensor.outputBeat();
@@ -193,15 +175,8 @@ void loop() {
   double rawValue = analogRead (sensorPinID);
   lasttime += 10000;
 
-  //In the "original" code example, "value" was sent to the computer. This calculation basically smoothens "rawValue".
-  //double value = alpha * oldValue + (1 - alpha) * rawValue;
-
   //Send back the measured value.
   Serial.println (rawValue);
-  //oldValue = value;
-  
-  //lcd.print(" I:");
-  //lcd.print(rawValue);
 
   // subtract the last reading:
   _ir_total = _ir_total - _ir_readings[_ir_readIndex];
@@ -231,11 +206,9 @@ void loop() {
   _RedLight = analogRead(2);
 
   /** Temperature **/
-  
-  //lcd.print(" T:");
 
   //Wait 10 ms between each measurement.
-  /*
+  
   if (micros() - _lastTempTime > 2000000)
   {
     switch (chk)
@@ -245,7 +218,7 @@ void loop() {
     }
     _temperature = DHT11.temperature;
 
-      /*
+      
     if (DHT11.temperature > 0.0) {
       _Temperature = DHT11.temperature;
     }
@@ -253,15 +226,12 @@ void loop() {
     _lastTempTime = micros();
 
   }
-*/
 
   if (micros() - _lastTempTime > 2500000)
   {
     _state = (_state + 1) % 5;
     _lastTempTime = micros();
   }
-
-  //lcd.print(_temperature);
 
   /** SpO2 Equation **/
 
@@ -297,6 +267,7 @@ void loop() {
 
   double low1,low2,high1,high2,middle1,middle2,lowest,highest;
 
+  /** Sorting 4 values **/
   if (ranks[1] > ranks[0]) {
         low1 = ranks[0];
         high1 = ranks[1];
@@ -304,15 +275,6 @@ void loop() {
         low1 = ranks[1];
         high1 = ranks[0];
   }
-
-  if (ranks[2] < ranks[3]) {
-        low1 = ranks[2];
-        high1 = ranks[3];
-  } else { 
-        low1 = ranks[3];
-        high1 = ranks[2];
-  }
-
 
   if (ranks[2] < ranks[3]) {
         low1 = ranks[2];
@@ -348,7 +310,7 @@ void loop() {
 
   /** OUTPUT **/
   switch(_state) {
-    case 0: //  BPM
+    case 0: //  Severity
       lcd.print("Severity: ");
       lcd.print(_severity, 4);
       lcd.setCursor(0,1);
@@ -396,7 +358,7 @@ void loop() {
       lcd.print("Temp (C):");
       lcd.print(_temperature);
       break;
-    case 4:   //  Temp
+    case 4:   //  BP
       lcd.print("BP (Sys):  ");
       lcd.print(_BP);
       break;
